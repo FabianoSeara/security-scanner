@@ -1,83 +1,83 @@
-# 🛠️ Checklist de Inspeção de Equipamentos
+# 🔐 Security Scanner
 
-Sistema de linha de comando (CLI) para gerenciar inspeções de segurança em
-equipamentos portuários (RTG e Reach Stacker): login de inspetores, checklist
-item a item, histórico de inspeções e liberação/bloqueio de equipamento.
+Scanner de segurança em linha de comando que varre arquivos de código em
+busca de credenciais expostas (senhas, chaves de API, tokens) deixadas por
+engano no código-fonte — o mesmo tipo de problema que ferramentas como
+Gitleaks resolvem em pipelines de CI/CD.
 
-Este projeto nasceu da minha experiência prática como operador de guindaste em
-terminal portuário, onde inspeções de segurança fazem parte da rotina diária.
-A proposta foi recriar esse processo como uma aplicação real, com banco de
-dados e autenticação de usuários.
+Este projeto nasceu do interesse em DevSecOps: a proposta foi entender, na
+prática, como esse tipo de ferramenta de segurança funciona por dentro —
+desde a leitura de arquivos até o uso de expressões regulares (regex) para
+detectar padrões com precisão, evitando falsos positivos.
 
 ## Funcionalidades
 
-- **Login com autenticação**: cada inspetor tem nome e matrícula cadastrados;
-  senha (matrícula) armazenada como hash, nunca em texto puro. 3 tentativas
-  antes do bloqueio de acesso.
-- **Checklist estruturado**: percorre 8 itens de verificação (pneus, cabos,
-  sinalização sonora, câmeras, botões de emergência, vidros, óleo, água),
-  registrando status (OK/Pendência) e observação quando houver problema.
-- **Validação de equipamento**: só aceita números de equipamento previamente
-  cadastrados (RTG-01 a RTG-08, RS-01 a RS-04), evitando erros de digitação.
-- **Resultado final controlado pelo inspetor**: Liberado ou Bloqueado — a
-  decisão é sempre manual, nunca automática, refletindo o processo real de
-  segurança.
-- **Histórico de inspeções**: consulta com filtro opcional por equipamento.
+- **Varredura de pasta completa**: percorre recursivamente todos os
+  arquivos `.py` de um diretório e suas subpastas.
+- **Detecção por padrão (regex)**: identifica linhas onde uma palavra
+  suspeita (`password`, `token`, `key`, `secret`, `adm`) aparece como nome
+  de variável atribuída a um valor entre aspas — não apenas em qualquer
+  lugar do texto, o que evita alarmes falsos.
+- **Tratamento de erros**: avisa de forma amigável se um arquivo ou pasta
+  não for encontrado, em vez de quebrar o programa.
 
 ## Tecnologias
 
 - **Python 3** (sem dependências externas)
-- **SQLite** (banco de dados local, via módulo `sqlite3` da biblioteca padrão)
-- **hashlib** (hash de senha, biblioteca padrão)
+- **re** (expressões regulares, biblioteca padrão)
+- **os** (navegação de diretórios, biblioteca padrão)
 
 ## Estrutura do projeto
 
-```
-checklist-equipamentos/
-├── main.py          # Menu do terminal, login e telas de interação
-├── operacoes.py      # Regras de negócio (login, registrar inspeção, listar...)
-├── database.py        # Conexão e criação das tabelas no SQLite
+security-scanner/
+├── scanner.py # Lógica de varredura: scan_file e scan_folder
+├── main.py # Interface de linha de comando
+├── teste_inseguro.py # Arquivo de exemplo com credenciais fictícias para teste
 └── README.md
+
+## Como funciona a detecção (resumo)
+
+O padrão de busca usado é:
+
+```python
+r"(password|token|key|secret|adm)\s*=\s*[\"'].*[\"']"
 ```
 
-## Modelo de dados
-
-Três tabelas relacionadas:
-
-- **`inspetores`** — nome e matrícula (hash) de quem pode logar no sistema
-- **`inspecoes`** — dados gerais de cada inspeção (máquina, inspetor, data, resultado)
-- **`itens_inspecao`** — cada item do checklist, ligado à inspeção correspondente
-  por chave estrangeira (`inspecao_id`)
+Isso identifica linhas no formato `palavra_suspeita = "valor"`, ignorando
+menções à palavra em outros contextos (como listas ou comentários), o que
+reduz bastante os falsos positivos comparado a uma busca de texto simples.
 
 ## Como rodar
 
 Não precisa instalar nenhuma dependência — só Python 3.
 
 ```bash
-git clone https://github.com/FabianoSeara/checklist-equipamentos.git
-cd checklist-equipamentos
+git clone https://github.com/FabianoSeara/security-scanner.git
+cd security-scanner
 python main.py
 ```
 
-O banco de dados (`inspecoes.db`) é criado automaticamente na primeira execução.
+O programa vai pedir o caminho da pasta a ser escaneada (use `.` para a
+pasta atual).
 
-**Inspetores cadastrados para teste:**
-| Nome | Matrícula |
-|------|-----------|
-| Ricardo | 20 |
-| Rafael | 21 |
-| Fabiano | 22 |
-| João | 23 |
+## Exemplo de saída
+
+Digite o caminho da pasta: .
+
+Iniciando a varredura: .
+[ALERT] Suspicious line: api_key = "sk_live_abc123xyz789"
+[ALERT] Suspicious line: SECRET_TOKEN = "ghp_1234567890abcdef"
+
+Varredura concluída.
 
 ## Próximos passos
 
-- [ ] Validar também o tipo de máquina (RTG/RS) contra uma lista fixa
-- [ ] Exibir os itens do checklist na tela de listagem, não só o resumo
-- [ ] Tela para cadastrar novos inspetores direto pelo menu
-- [ ] Exportar relatórios de inspeção em PDF ou CSV
+- [ ] Suportar outras extensões de arquivo (`.js`, `.env`, `.json`)
+- [ ] Contabilizar estatísticas da varredura (arquivos escaneados, total de alertas)
+- [ ] Permitir ignorar pastas específicas (como `__pycache__`, `.git`)
 
 ---
 
 Projeto desenvolvido por [Fabiano Seára](https://github.com/FabianoSeara) como
-parte do meu portfólio de transição de carreira para desenvolvimento de
-software, com apoio de IA (Claude) no processo de aprendizado.
+parte do meu portfólio de transição de carreira para a área de tecnologia,
+com apoio de IA (Claude) no processo de aprendizado.
